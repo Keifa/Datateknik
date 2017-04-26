@@ -195,3 +195,48 @@ setOutputLow:
 	STR r5, [r4]
 
 	POP {r4,r5,r6,r7,pc}
+	
+	
+	
+	
+	/*Sätter input*/
+	setInput:
+
+	PUSH {r4, r5, r6, r7, lr}
+	
+	/* Spara input  */
+	MOV r5, r0
+
+	/* Hämta gpioadressen  */
+	LDR r4, =gpioAddr
+	LDR r4, [r4]
+	
+	/* Dividera r5 med 10  */
+	MOV r0, r5
+	MOV r1, #10
+	BL idiv
+	/* Spara kvot  */
+	MOV r5, r0
+	/* Spara rest  */
+	MOV r6, r1
+	
+	/* väster delen, (4*(GPIO_NR/10))*/
+	MOV r7, #4
+	MUL r5, r7
+	/* Höger delen, <((GPIO_NR%10)*3) */
+	MOV r7, #3
+	MUL r6, r7
+	/*~  bitwise NOT operator i höger delen */
+	NOT r6
+	/ *vänster delen, gpio_addr + (4*(GPIO_NR/10)) så r4 är väster delen */
+	ADD r4, r4, r5
+
+	/*r5 blir höger delen << */
+	MOV r5, #7
+	LSL r5, r6
+
+	/*vet inte är det rätt eller inte*/
+	/*jag gör vänster delen som pekare och sen kör bitwise AND operator med höger delen*/
+	STR r4, [r4]
+	AND r4, r5
+	POP {r4,r5,r6,r7,pc}
