@@ -250,6 +250,8 @@ setInput:
 	/*jag gör vänster delen som pekare och sen kör bitwise AND operator med höger delen*/
 	STR r4, [r4]
 	AND r4, r5
+	/*retur till r0?!*/
+	MOV r0, r4
 	POP {r4,r5,r6,r7,pc}
 
 /* Enkel funktion för att vänta en kort stund */
@@ -298,6 +300,7 @@ setPinToPullUp:
 	LDR r5, =gpioAddr
 	LDR r5, [r5]
 	ADD r5, #152
+<<<<<<< HEAD
 
 	/* 1 << (GPIO_NR % 32) */
 	MOV r0, r4
@@ -313,3 +316,7 @@ setPinToPullUp:
 	BL shortWait
 
 	POP {r4,r5,r6,r7,pc}
+=======
+	
+	POP {r4,r5,pc}
+>>>>>>> 7108637fe13a4cf9b7a21da97774f98ce7a67d0e
