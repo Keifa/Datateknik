@@ -250,8 +250,6 @@ setInput:
 	/*jag gör vänster delen som pekare och sen kör bitwise AND operator med höger delen*/
 	STR r4, [r4]
 	AND r4, r5
-	/*retur till r0?!*/
-	MOV r0, r4
 	POP {r4,r5,r6,r7,pc}
 
 /* Enkel funktion för att vänta en kort stund */
