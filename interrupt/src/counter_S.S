@@ -33,6 +33,7 @@ gpioAddr:
 
 printVal:
 	.asciz "%x\n"
+	
 .text
 /*
 ** Division
@@ -195,12 +196,10 @@ setOutputLow:
 	STR r5, [r4]
 
 	POP {r4,r5,r6,r7,pc}
+		
 	
-	
-	
-	
-	/*Sätter input*/
-	setInput:
+/*Sätter input*/
+setInput:
 
 	PUSH {r4, r5, r6, r7, lr}
 	
@@ -240,3 +239,51 @@ setOutputLow:
 	STR r4, [r4]
 	AND r4, r5
 	POP {r4,r5,r6,r7,pc}
+
+/* Enkel funktion för att vänta en kort stund */
+shortWait:
+	PUSH {r4,lr}
+	
+	MOV r4, #0
+	BL swLoop
+	
+	swLoopCheck:
+		CMP r4, #150
+		BLT swLoop
+		BL swEnd
+		
+	swLoop:
+		ADD r4, #1
+		SUB r4, #1
+		ADD r4, #1
+		BL swLoopCheck
+		
+	swEnd:
+		POP {r4,pc}
+		
+setPullCode:
+	PUSH {r4,r5,lr}
+	
+	/* Hämta gpioadressen  */
+	LDR r4, =gpioAddr
+	LDR r4, [r4]
+	
+	ADD r4, #148
+	STR #2, [r4]
+	
+	POP {r4,pc}
+	
+/* Sätt vilken pin som ska sättas till pull up */
+setPinToPullUp:
+	PUSH {r4,r5,lr}
+	
+	/* Spara input */
+	MOV r4, r0
+	
+	/* Hämta gpioadressen  */
+	LDR r5, =gpioAddr
+	LDR r5, [r5]
+	
+	ADD r5, #152
+	
+	POP {r4,r5,pc}
