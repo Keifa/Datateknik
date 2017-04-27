@@ -33,6 +33,12 @@ gpioAddr:
 
 printVal:
 	.asciz "%x\n"
+
+printSetOutput:
+	.asciz "SOutput ( %x |= %x ) %x\n"
+
+printSetInput:
+	.asciz "SInput ( %x &= %x ) %x\n"
 	
 .text
 /*
@@ -60,6 +66,10 @@ idiv:
 */
 .GLOBAL counter_isr_up
 counter_isr_up:
+	
+	LDR r0, =printVal
+	MOV r1, #1
+	BL printk
 
 	BX lr
 
@@ -68,6 +78,10 @@ counter_isr_up:
 */
 .GLOBAL counter_isr_down
 counter_isr_down:
+	
+	LDR r0, =printVal
+	MOV r1, #0
+	BL printk
 
 	BX lr
 
@@ -79,11 +93,44 @@ setup:
 	PUSH {lr}
 
 	BL calcGpioAddr
-	MOV r1, r0
 	LDR r0, =printVal
+	LDR r1, =gpioAddr
+	LDR r1, [r1]
 	BL printk
+
+	/* Output */
+	MOV r0, #183
+	BL setOutput
 	MOV r0, #183
 	BL setOutputHigh
+
+	MOV r0, #184
+	BL setOutput
+	MOV r0, #184
+	BL setOutputHigh
+
+	MOV r0, #193
+	BL setOutput
+	MOV r0, #193
+	BL setOutputHigh
+
+	MOV r0, #188
+	BL setOutput
+	MOV r0, #188
+	BL setOutputHigh
+
+	/* Input */
+	BL setPullCode
+
+	MOV r0, #176
+	BL setInput
+	MOV r0, #176
+	BL setPinToPullUp
+
+	MOV r0, #175
+	BL setInput
+	MOV r0, #175
+	BL setPinToPullUp
 
 	POP {pc}
 
@@ -97,8 +144,8 @@ setdown:
 	LDR r4, =gpioAddr
 	LDR r4, [r4]
 
-	ADD r5. r4, 148
-	ADD r6, r4, 152
+	ADD r5, r4, #148
+	ADD r6, r4, #152
 	MOV r7, #0
 
 	STR r7, [r5]
@@ -106,6 +153,7 @@ setdown:
 	BL shortWait	
 
 	POP {r4,r5,r6,r7,pc}
+
 
 /* Räkna ut virtuella basminnesaddresen för gpio */
 calcGpioAddr:
@@ -121,25 +169,25 @@ calcGpioAddr:
 	
 	/* Laddar in adressen till konstanten i r6   */
 	LDR r6, =#0x00FFFFFF
-	/*   */
+	/* (addr) & 0x00FFFFFF */
 	AND r4, r6
 	
-	/* Rightshifta r5 */
+	/* r5 >> 4 */
 	LSR r5, #4
 	
-	ADD r4, r4, r5
-	
-	LDR r6, =#0x0F000000
-	AND r4, r6
+	LDR r6, =#0x0F000000	
+	AND r5, r6
+
+	ADD r4, r5
 	
 	LDR r6, =#0xF0000000
-	ADD r4, r4, r6
-	
-	MOV r0, r4
+	ADD r4, r6
 	
 	LDR r5, =gpioAddr
 	STR r4, [r5]
 	
+	MOV r0, r4
+
 	/* Popa från stacken  */
 	POP {r4,r5,r6,pc}
 
@@ -213,10 +261,11 @@ setOutputLow:
 /*Sätter input*/
 setInput:
 
-	PUSH {r4, r5, r6, r7, lr}
+	PUSH {r4, r5, r6, r7, r10, lr}
 	
 	/* Spara input  */
 	MOV r5, r0
+	MOV r10, r0
 
 	/* Hämta gpioadressen  */
 	LDR r4, =gpioAddr
@@ -234,25 +283,33 @@ setInput:
 	/* väster delen, (4*(GPIO_NR/10))*/
 	MOV r7, #4
 	MUL r5, r7
+
 	/* Höger delen, <((GPIO_NR%10)*3) */
 	MOV r7, #3
 	MUL r6, r7
-	/*~  bitwise NOT operator i höger delen */
-	NOT r6
-	/ *vänster delen, gpio_addr + (4*(GPIO_NR/10)) så r4 är väster delen */
-	ADD r4, r4, r5
+
+	/*vänster delen, gpio_addr + (4*(GPIO_NR/10)) så r4 är väster delen */
+	ADD r4, r5
 
 	/*r5 blir höger delen << */
 	MOV r5, #7
 	LSL r5, r6
+	/*~  bitwise NOT operator i höger delen */
+	MVN r5, r5
 
 	/*vet inte är det rätt eller inte*/
 	/*jag gör vänster delen som pekare och sen kör bitwise AND operator med höger delen*/
-	STR r4, [r4]
+	/*STR r4, [r4]*/
+	MOV r6, r4
 	AND r4, r5
-	/*retur till r0?!*/
-	MOV r0, r4
-	POP {r4,r5,r6,r7,pc}
+
+	LDR r0, =printSetInput
+	/*MOV r1, r10*/
+	MOV r1, r6
+	MOV r2, r5
+	BL printk
+	
+	POP {r4,r5,r6,r7,r10,pc}
 
 /* Enkel funktion för att vänta en kort stund */
 shortWait:
@@ -283,11 +340,12 @@ setPullCode:
 	LDR r4, [r4]
 	
 	ADD r4, #148
-	STR #2, [r4]
+	MOV r5, #2
+	STR r5, [r4]
 
 	BL shortWait
 	
-	POP {r4,pc}
+	POP {r4,r5,pc}
 	
 /* Sätt vilken pin som ska sättas till pull up */
 setPinToPullUp:
@@ -300,7 +358,7 @@ setPinToPullUp:
 	LDR r5, =gpioAddr
 	LDR r5, [r5]
 	ADD r5, #152
-<<<<<<< HEAD
+
 
 	/* 1 << (GPIO_NR % 32) */
 	MOV r0, r4
@@ -316,7 +374,44 @@ setPinToPullUp:
 	BL shortWait
 
 	POP {r4,r5,r6,r7,pc}
-=======
-	
-	POP {r4,r5,pc}
->>>>>>> 7108637fe13a4cf9b7a21da97774f98ce7a67d0e
+
+/* Sätter GPIO pin med nummer GPIO_NR till att vara output. */
+setOutput:
+	PUSH {r4, r5, r6, r7, r8, r9, r10, lr}
+	/* Sparar input */
+	MOV r9, r0
+	MOV r10, r0
+	/* Dividderar med 10 */
+	MOV r0, r9
+	MOV r1, #10
+	BL idiv
+	/* Sparar kvoten i r5 och resten i r6 */
+	MOV r5, r0
+	MOV r6, r1
+	/* Multiplcierar med 4 */
+	MOV r7, #4
+	MUL r5, r7
+	/*Adderar gpio adressen */
+	LDR r4, =gpioAddr
+	LDR r4, [r4]
+	ADD r5, r4
+
+	/* Multicplicerar med 3*/
+	MOV r7, #3
+	MUL r6, r7
+	/* Leftshift r6 */
+	MOV r9, #1
+	LSL r9, r6
+	/* Compare*/
+	MOV r8, r5
+	ORR r5, r9
+
+	LDR r0, =printSetOutput
+	/*MOV r1, r10*/
+	MOV r1, r8
+	MOV r2, r9
+	MOV r3, r5
+	BL printk
+
+	POP {r4, r5, r6, r7, r8, r9, r10, pc}
+
