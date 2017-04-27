@@ -302,6 +302,7 @@ setInput:
 	/*STR r4, [r4]*/
 	MOV r6, r4
 	AND r4, r5
+<<<<<<< HEAD
 
 	LDR r0, =printSetInput
 	/*MOV r1, r10*/
@@ -310,6 +311,9 @@ setInput:
 	BL printk
 	
 	POP {r4,r5,r6,r7,r10,pc}
+=======
+	POP {r4,r5,r6,r7,pc}
+>>>>>>> 4031e9b17b27ed925ca96f55b43e9fca91f15108
 
 /* Enkel funktion för att vänta en kort stund */
 shortWait:
