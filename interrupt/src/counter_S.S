@@ -92,8 +92,20 @@ setup:
 */
 .GLOBAL setdown
 setdown:
+	PUSH {r4,r5,r6,r7,lr}
 
-	BX lr
+	LDR r4, =gpioAddr
+	LDR r4, [r4]
+
+	ADD r5. r4, 148
+	ADD r6, r4, 152
+	MOV r7, #0
+
+	STR r7, [r5]
+	STR r7, [r6]
+	BL shortWait	
+
+	POP {r4,r5,r6,r7,pc}
 
 /* Räkna ut virtuella basminnesaddresen för gpio */
 calcGpioAddr:
@@ -270,20 +282,34 @@ setPullCode:
 	
 	ADD r4, #148
 	STR #2, [r4]
+
+	BL shortWait
 	
 	POP {r4,pc}
 	
 /* Sätt vilken pin som ska sättas till pull up */
 setPinToPullUp:
-	PUSH {r4,r5,lr}
+	PUSH {r4,r5,r6,r7,lr}
 	
 	/* Spara input */
 	MOV r4, r0
 	
-	/* Hämta gpioadressen  */
+	/* gpio_addr + 152  */
 	LDR r5, =gpioAddr
 	LDR r5, [r5]
-	
 	ADD r5, #152
-	
-	POP {r4,r5,pc}
+
+	/* 1 << (GPIO_NR % 32) */
+	MOV r0, r4
+	MOV r1, #32
+	BL idiv
+	MOV r7, r1
+	MOV r6, #1
+	LSL r6, r7
+
+	/* *(gpio_addr + 152) = (1 << (GPIO_NR % 32)) */
+	STR r6, [r5]
+
+	BL shortWait
+
+	POP {r4,r5,r6,r7,pc}
