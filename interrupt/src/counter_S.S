@@ -160,6 +160,15 @@ setup:
 setdown:
 	PUSH {r4,r5,r6,r7,lr}
 
+	MOV r0, #17
+	BL setOutputLow
+	MOV r0, #18
+	BL setOutputLow
+	MOV r0, #27
+	BL setOutputLow
+	MOV r0, #22
+	BL setOutputLow
+
 	LDR r4, =gpioAddr
 	LDR r4, [r4]
 
@@ -169,7 +178,7 @@ setdown:
 
 	STR r7, [r5]
 	STR r7, [r6]
-	BL shortWait	
+	BL shortWait
 
 	POP {r4,r5,r6,r7,pc}
 
