@@ -137,11 +137,8 @@ setup:
 	BL setOutput
 	
 	/* Set input */
+	MOV r0, #2
 	BL setPullCode
-	MOV r0, #9
-	BL setPinToPullUp
-	MOV r0, #10
-	BL setPinToPullUp
 	
 	MOV r0, #9
 	BL setInput
@@ -169,16 +166,8 @@ setdown:
 	MOV r0, #22
 	BL setOutputLow
 
-	LDR r4, =gpioAddr
-	LDR r4, [r4]
-
-	ADD r5, r4, #148
-	ADD r6, r4, #152
-	MOV r7, #0
-
-	STR r7, [r5]
-	STR r7, [r6]
-	BL shortWait
+	MOV r0, #0
+	BL setPullCode
 
 	POP {r4,r5,r6,r7,pc}
 
@@ -389,19 +378,36 @@ shortWait:
 		POP {r4,pc}
 		
 setPullCode:
-	PUSH {r4,r5,lr}
+	PUSH {r4,r5,r6,r7,lr}
 	
+	MOV r5, r0
+
 	/* Hämta gpioadressen  */
 	LDR r4, =gpioAddr
 	LDR r4, [r4]
 	
 	ADD r4, #148
-	MOV r5, #2
 	STR r5, [r4]
+	BL shortWait
 
+	MOV r0, #9
+	BL setPinToPullUp
+	MOV r0, #10
+	BL setPinToPullUp
+	BL shortWait
+
+	LDR r4, =gpioAddr
+	LDR r4, [r4]
+
+	ADD r5, r4, #148
+	ADD r6, r4, #152
+	MOV r7, #0
+
+	STR r7, [r5]
+	STR r7, [r6]
 	BL shortWait
 	
-	POP {r4,r5,pc}
+	POP {r4,r5,r6,r7,pc}
 	
 /* Sätt vilken pin som ska sättas till pull up */
 setPinToPullUp:
