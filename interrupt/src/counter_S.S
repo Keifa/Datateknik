@@ -1,28 +1,15 @@
-/*
-Kristoffer
-Sätter pin att vara output
-*(gpio_addr + (4 * (GPIO_NR / 10 ))) |= (1 << (((GPIO_NR) % 10) * 3));
-
-Farid
-Sätta pin att vara input
-*(gpio_addr + (4* ( GPIO_NR / 10))) &= ~(7<< ((GPIO_NR % 10) * 3));
-
-Peter
-Sida 4
-*/
 
 .data
-/*
-** Variabler här
-input:
-	gpio 10	176
-	gpio 9	175
-output:
-	gpio 17	183
-	gpio 18	184
-	gpio 27 193
-	gpio 22	188
 
+/*
+input:
+	gpio 10	irq: 176
+	gpio 9	irq: 175
+output:
+	gpio 17
+	gpio 18
+	gpio 27	
+	gpio 22	
 */
 
 baseAdress: 
@@ -31,8 +18,17 @@ baseAdress:
 gpioAddr:
 	.word 0
 
+counter:
+	.word 1
+
 printVal:
 	.asciz "%x\n"
+
+testPrintUp:
+	.asciz "up\n"
+
+testPrintDown:
+	.asciz "down\n"
 
 printSetOutput:
 	.asciz "SOutput ( %x |= %x ) %x\n"
@@ -67,11 +63,25 @@ idiv:
 .GLOBAL counter_isr_up
 counter_isr_up:
 	
+	PUSH {r4,r5,lr}
+
+	LDR r4, =counter
+	LDR r5, [r4]
+	ADD r5, #1
+	CMP r5, #16
+	MOVGE r5, #1
+	STR r5, [r4] 
+
 	LDR r0, =printVal
-	MOV r1, #1
+	LDR r1, =counter
+	LDR r1, [r1]
 	BL printk
 
-	BX lr
+	BL handleOutputs
+
+	MOV r0, #1
+
+	POP {r4,r5,pc}
 
 /*
 ** Avbrottsrutin som kallas när ett avbrott sker. Ska räkna neråt
@@ -79,11 +89,26 @@ counter_isr_up:
 .GLOBAL counter_isr_down
 counter_isr_down:
 	
+	PUSH {r4,r5,lr}
+
+	LDR r4, =counter
+	LDR r5, [r4]
+	SUB r5, #1
+	CMP r5, #0
+	MOVLE r5, #15
+	STR r5, [r4] 
+
 	LDR r0, =printVal
-	MOV r1, #0
+	LDR r1, =counter
+	LDR r1, [r1]
 	BL printk
 
-	BX lr
+	BL handleOutputs
+
+	MOV r0, #1
+
+	POP {r4,r5,pc}
+
 
 /*
  * Sätt upp åtkomst till GPIO-pinnarnas minne
@@ -93,44 +118,38 @@ setup:
 	PUSH {lr}
 
 	BL calcGpioAddr
-	LDR r0, =printVal
+	/*LDR r0, =printVal
 	LDR r1, =gpioAddr
 	LDR r1, [r1]
-	BL printk
+	BL printk*/
 
-	/* Output */
-	MOV r0, #183
+	/* Set output */
+	MOV r0, #17
 	BL setOutput
-	MOV r0, #183
-	BL setOutputHigh
-
-	MOV r0, #184
+	
+	MOV r0, #18
 	BL setOutput
-	MOV r0, #184
-	BL setOutputHigh
-
-	MOV r0, #193
+	
+	MOV r0, #27
 	BL setOutput
-	MOV r0, #193
-	BL setOutputHigh
 
-	MOV r0, #188
+	MOV r0, #22
 	BL setOutput
-	MOV r0, #188
-	BL setOutputHigh
-
-	/* Input */
+	
+	/* Set input */
 	BL setPullCode
-
-	MOV r0, #176
-	BL setInput
-	MOV r0, #176
+	MOV r0, #9
 	BL setPinToPullUp
-
-	MOV r0, #175
-	BL setInput
-	MOV r0, #175
+	MOV r0, #10
 	BL setPinToPullUp
+	
+	MOV r0, #9
+	BL setInput
+	MOV r0, #10
+	BL setInput
+	
+	MOV r0, #17
+	BL setOutputHigh
 
 	POP {pc}
 
@@ -154,6 +173,46 @@ setdown:
 
 	POP {r4,r5,r6,r7,pc}
 
+handleOutputs:
+
+	PUSH {r4,r5,lr}
+
+	LDR r5, =counter
+	LDR r4, [r5]	
+	
+	/* Output 1 */
+	MOV r0, #17
+	AND r4, #1
+	CMP r4, #1
+	BLEQ setOutputHigh
+	BLNE setOutputLow
+
+	/* Output 2 */
+	MOV r0, #18
+	LDR r4, [r5]
+	AND r4, #2
+	CMP r4, #2
+	BLEQ setOutputHigh
+	BLNE setOutputLow
+
+	/* Output 3 */
+	MOV r0, #27
+	LDR r4, [r5]
+	AND r4, #4
+	CMP r4, #4
+	BLEQ setOutputHigh
+	BLNE setOutputLow
+
+	/* Output 4 */
+	MOV r0, #22
+	LDR r4, [r5]
+	AND r4, #8
+	CMP r4, #8
+	BLEQ setOutputHigh
+	BLNE setOutputLow
+	
+	POP {r4,r5,pc}
+	
 
 /* Räkna ut virtuella basminnesaddresen för gpio */
 calcGpioAddr:
@@ -260,60 +319,44 @@ setOutputLow:
 	
 /*Sätter input*/
 setInput:
-
-	PUSH {r4, r5, r6, r7, r10, lr}
+	PUSH {r4, r5, r6, r7, r8, r9, r10, lr}
 	
-	/* Spara input  */
-	MOV r5, r0
-	MOV r10, r0
-
-	/* Hämta gpioadressen  */
-	LDR r4, =gpioAddr
-	LDR r4, [r4]
-	
-	/* Dividera r5 med 10  */
-	MOV r0, r5
+	/* Dividderar med 10 */
 	MOV r1, #10
 	BL idiv
-	/* Spara kvot  */
+	
+	/* Sparar kvoten i r5 och resten i r6 */
 	MOV r5, r0
-	/* Spara rest  */
 	MOV r6, r1
 	
-	/* väster delen, (4*(GPIO_NR/10))*/
+	/* Multiplcierar med 4 */
 	MOV r7, #4
 	MUL r5, r7
+	
+	/*Adderar gpio adressen */
+	LDR r4, =gpioAddr
+	LDR r4, [r4]
+	ADD r5, r4
 
-	/* Höger delen, <((GPIO_NR%10)*3) */
+	/* Multicplicerar med 3*/
 	MOV r7, #3
 	MUL r6, r7
-
-	/*vänster delen, gpio_addr + (4*(GPIO_NR/10)) så r4 är väster delen */
-	ADD r4, r5
-
-	/*r5 blir höger delen << */
-	MOV r5, #7
-	LSL r5, r6
-	/*~  bitwise NOT operator i höger delen */
-	MVN r5, r5
-
-	/*vet inte är det rätt eller inte*/
-	/*jag gör vänster delen som pekare och sen kör bitwise AND operator med höger delen*/
-	/*STR r4, [r4]*/
-	MOV r6, r4
-	AND r4, r5
-<<<<<<< HEAD
-
-	LDR r0, =printSetInput
-	/*MOV r1, r10*/
-	MOV r1, r6
-	MOV r2, r5
-	BL printk
 	
-	POP {r4,r5,r6,r7,r10,pc}
-=======
-	POP {r4,r5,r6,r7,pc}
->>>>>>> 4031e9b17b27ed925ca96f55b43e9fca91f15108
+	/* Leftshift r6 */
+	MOV r9, #7
+	LSL r9, r6
+
+	/* ~ */
+	MVN r9, r9
+	
+	/* Compare */
+	LDR r4, [r5]
+	AND r4, r9
+
+	STR r4, [r5]
+
+	POP {r4, r5, r6, r7, r8, r9, r10, pc}
+
 
 /* Enkel funktion för att vänta en kort stund */
 shortWait:
@@ -363,7 +406,6 @@ setPinToPullUp:
 	LDR r5, [r5]
 	ADD r5, #152
 
-
 	/* 1 << (GPIO_NR % 32) */
 	MOV r0, r4
 	MOV r1, #32
@@ -382,19 +424,19 @@ setPinToPullUp:
 /* Sätter GPIO pin med nummer GPIO_NR till att vara output. */
 setOutput:
 	PUSH {r4, r5, r6, r7, r8, r9, r10, lr}
-	/* Sparar input */
-	MOV r9, r0
-	MOV r10, r0
+	
 	/* Dividderar med 10 */
-	MOV r0, r9
 	MOV r1, #10
 	BL idiv
+	
 	/* Sparar kvoten i r5 och resten i r6 */
 	MOV r5, r0
 	MOV r6, r1
+	
 	/* Multiplcierar med 4 */
 	MOV r7, #4
 	MUL r5, r7
+	
 	/*Adderar gpio adressen */
 	LDR r4, =gpioAddr
 	LDR r4, [r4]
@@ -403,19 +445,16 @@ setOutput:
 	/* Multicplicerar med 3*/
 	MOV r7, #3
 	MUL r6, r7
+	
 	/* Leftshift r6 */
 	MOV r9, #1
 	LSL r9, r6
-	/* Compare*/
-	MOV r8, r5
-	ORR r5, r9
+	
+	/* Compare */
+	LDR r4, [r5]
+	ORR r4, r9
 
-	LDR r0, =printSetOutput
-	/*MOV r1, r10*/
-	MOV r1, r8
-	MOV r2, r9
-	MOV r3, r5
-	BL printk
+	STR r4, [r5]
 
 	POP {r4, r5, r6, r7, r8, r9, r10, pc}
 
